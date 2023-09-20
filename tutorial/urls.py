@@ -29,6 +29,9 @@ urlpatterns = [
     path('', include(router.urls)),
     path('api-auth/', include('rest_framework.urls', namespace='rest_framework')),
     path('api/openai/', views.openAIView),
+    path('test_token', views.test_token),
+    path('login', views.login),
+    path('signup', views.signup),
 ]
 
 
