@@ -1,0 +1,4 @@
+OPENAI_KEY="apinya"
+DB_HOST="hostnya"
+DB_USER="user"
+DB_PASSWORD="passnya"
