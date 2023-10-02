@@ -15,9 +15,12 @@ from langchain.llms import OpenAI
 from langchain.vectorstores import Chroma
 from langchain.document_loaders.csv_loader import CSVLoader
 from langchain.text_splitter import CharacterTextSplitter
+from langchain.callbacks import get_openai_callback
 
+from langchain.memory import ConversationSummaryMemory, ChatMessageHistory
+from langchain.chains.conversational_retrieval.prompts import QA_PROMPT
 
-os.environ["OPENAI_API_KEY"] = "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"
+os.environ["OPENAI_API_KEY"] = os.environ.get("OPENAI_KEY")
 
 PERSIST = False
 
@@ -33,12 +36,10 @@ else:
   #loader = TextLoader("/Users/yusril/Desktop/TugasAkhir/Code/Django/restapi/tutorial/serverapi/testing.txt")
   #pdfFileObj = open('/Users/yusril/Desktop/TugasAkhir/Code/Django/restapi/tutorial/serverapi/qna.pdf', 'rb')
   loader = PyPDFLoader("/Users/yusril/Desktop/TugasAkhir/Code/Django/restapi/tutorial/serverapi/qna.pdf") # Use this line if you only need data.txt
-
   #loader = CSVLoader(file_path='/Users/yusril/Downloads/all_hadiths_clean.csv')
   #loader = DirectoryLoader("/content/data")
 
   if PERSIST:
-    #index = VectorstoreIndexCreator(vectorstore_kwargs={"persist_directory":"persist"}).from_loaders([loader])
     index = VectorstoreIndexCreator(
     vectorstore_kwargs={"persist_directory":"persist"},
     embedding=OpenAIEmbeddings(),
@@ -46,33 +47,18 @@ else:
     ).from_loaders([loader])
   else:
     index = VectorstoreIndexCreator().from_loaders([loader])
-    """
-    index_creator = VectorstoreIndexCreator(
-    vectorstore_cls=Chroma,
-    embedding=OpenAIEmbeddings(),
-    text_splitter=CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
-    )   
-    """
 
-#chain = index.query(query,llm=ChatOpenAI(model="gpt-3.5-turbo"))
 
-chain = ConversationalRetrievalChain.from_llm( 
-  llm=ChatOpenAI(model="gpt-3.5-turbo"),
-  retriever=index.vectorstore.as_retriever(search_kwargs={"k": 1}),
+memory = ConversationSummaryMemory(
+    llm = OpenAI(model_name='gpt-3.5-turbo'),
+    memory_key='chat_history',
+    return_messages=True,
+    output_key='answer'
 )
 
-
-"""
-#simmilariy
-query = "What did the president say about Ketanji Brown Jackson"
-docs = db.similarity_search(query)
-print(docs[0].page_content)
-
-#search by vector
-embedding_vector = OpenAIEmbeddings().embed_query(query)
-docs = db.similarity_search_by_vector(embedding_vector)
-print(docs[0].page_content)
-
-retrivier nya
-https://python.langchain.com/docs/modules/data_connection/retrievers/
-"""
+chain = ConversationalRetrievalChain.from_llm(
+  llm=ChatOpenAI(model="gpt-3.5-turbo"),
+  retriever=index.vectorstore.as_retriever(search_kwargs={"k": 1}),
+  memory = memory,
+  max_tokens_limit = 200,
+)

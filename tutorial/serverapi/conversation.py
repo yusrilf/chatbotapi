@@ -4,8 +4,6 @@ from collections import ChainMap
 import sys
 from tutorial.serverapi.langchain import chain
 
-openai.api_key = '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'
-
 chat_history = []
 def generate_answer(question):
     global chat_history

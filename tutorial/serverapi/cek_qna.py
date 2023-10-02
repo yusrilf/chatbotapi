@@ -1,13 +1,15 @@
+
 import numpy as np
 import pandas as pd
 import csv
 import re
 import mysql.connector
+import os
 
 db = mysql.connector.connect(
-  host="127.0.0.1",
-  user="root",
-  passwd="password"
+  host=os.environ.get('DB_HOST'),
+  user=os.environ.get('DB_USER'),
+  passwd=os.environ.get('DB_PASSWORD')
 )
 
 def cek_qna(question):

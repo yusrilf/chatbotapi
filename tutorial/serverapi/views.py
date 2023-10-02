@@ -2,7 +2,9 @@ from http.client import HTTPResponse
 import json
 from rest_framework.response import Response
 from rest_framework import status
+from tutorial.serverapi.insert_temp import cek_temp_qna, insert_temp_qna, update_temp_qna
 from tutorial.serverapi.cek_qna import cek_qna
+from tutorial.serverapi.insert_qna import insert_qna
 from .serializers import *
 from rest_framework.authtoken.models import Token
 from rest_framework.decorators import api_view
@@ -16,8 +18,9 @@ from rest_framework.decorators import authentication_classes, permission_classes
 from rest_framework.authentication import SessionAuthentication, TokenAuthentication
 from rest_framework.permissions import IsAuthenticated
 from django.http import JsonResponse
+from langchain.callbacks import get_openai_callback
 
-openai.api_key = "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"
+openai.api_key = os.environ.get("OPENAI_KEY")
 
 @api_view(['POST'])
 def login(request):
@@ -67,20 +70,33 @@ def openAIView(request):
 
     elif request.method == 'POST':
         question = request.POST['prompt']
-        #cek pertama kali. cek dataset pertanyaan apakah ada yang sama
-        #cek kedua kali. cek dulu pertanyaan sudah pernah ada atau tidak di database?, jika sudah ada pakai fungsi untuk mengambil existing question dari database
-        hasil_cek = cek_qna(question)
-        hasilout = hasil_cek['message']
+        
+       
+        hasil_cek = cek_qna(question) #cek pertama kali. cek dataset pertanyaan apakah ada yang sama
+        hasilout = hasil_cek['message']  #cek kedua kali. cek dulu pertanyaan sudah pernah ada atau tidak di database?, jika sudah ada pakai fungsi untuk mengambil existing question dari database
         hasilout=str(hasilout).strip("()`'',")
-        print(hasilout)
+        #print(hasilout)
         if(hasilout != 'None'):
             data_obj = openAI(hasilout)
             serializer_class = openAISerializer(data_obj)
             return Response(serializer_class.data, status=status.HTTP_201_CREATED)
         else: 
-            prompt = generate_answer(question)
+            with get_openai_callback() as cb:
+                prompt = generate_answer(question)
+                #print(prompt)
+                hasil_cek2 = cek_temp_qna(question)
+                hasiltemp = hasil_cek2['message']
+                hasiltemp = str(hasiltemp).strip("()`'',")
+                print(f'hasiltemp ={hasiltemp}')
+                if(hasiltemp == 'None'):
+                    insert_temp_qna(question,prompt)
+                else:
+                    update_temp_qna(question,prompt,hasiltemp)
+                print(cb)
+
             data_obj = openAI(prompt)
             serializer_class = openAISerializer(data_obj)
+            #
             return Response(serializer_class.data, status=status.HTTP_201_CREATED)
 
         #cek validasi apakah pertanyaan sudah disimpan sebelumnya.. supaya tdk dobel.
@@ -90,7 +106,7 @@ def openAIView(request):
 
 """
 0. autorhization validation. (done)
-1. cek kesamaan output
+1. cek kesamaan output (done)
 2.
 buat akurasi, berapa salahnya, berapa benarnya untuk mengihtung akurasinya. minmal 25 pertanyaan.
 berapa salah, berapa benar.
@@ -99,36 +115,4 @@ pertanyaan typo, sesuai dataset, diluar dataset.
 dataset sekian berapa akecepatan, kalu ditambah dataset itu berapa..
 cek dilokal.. untuk kecepatan. dataset 1000. 5 percobaan, percobaan 1, 2,3,4,5 berapa speed lalu di rata rat.
 4. dibandingkan pertanyaan yang disimpan, apakah mempengaruhi kecepatan?
-"""
-"""
-
-def openAIView(request):
-    if request.method == 'GET':
-        completion = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "kamu adalah asisten tanya jawab tentang teknologi."},
-                {"role": "user", "content": "apa itu bahasa PHP!"}
-            ]
-        )
-        prompt = completion.choices[0].message.content
-        data_obj = openAI(prompt)
-        serializer_class = openAISerializer(data_obj)
-        return Response(serializer_class.data) 
-
-    elif request.method == 'POST':
-        question = request.POST['prompt']
-        print(question)
-        completion = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "kamu adalah asisten tanya jawab tentang teknologi."},
-                {"role": "user", "content": str(question)}
-            ]
-        )
-        prompt = completion.choices[0].message.content
-        data_obj = openAI(prompt)
-        serializer_class = openAISerializer(data_obj)
-        return Response(serializer_class.data, status=status.HTTP_201_CREATED)
-
 """
